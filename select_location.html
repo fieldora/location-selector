@@ -54,10 +54,6 @@
             const latitude = e.lngLat.lat;
             const longitude = e.lngLat.lng;
 
-            // Display latitude and longitude.
-            document.getElementById('latitude').textContent = latitude.toFixed(4);
-            document.getElementById('longitude').textContent = longitude.toFixed(4);
-
             // Remove existing marker.
             if (marker) {
                 marker.remove();
