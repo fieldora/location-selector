@@ -83,7 +83,7 @@
                         tableName: tableId,  // assuming tableId is in global scope
                         columnValues: {
                             // ... other columns ...
-                            columnName: `${latitude},${longitude}`  // update coordinates
+                            columnName: "test" // update coordinates
                         },
                         rowID: rowId  // assuming rowId is in global scope
                     }
@@ -96,7 +96,12 @@
                 headers: headers,
                 body: JSON.stringify(data)
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server responded with: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 console.log('Data updated successfully:', data);
             })
