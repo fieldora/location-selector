@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapbox Location Picker</title>
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        /* Add any custom styles here */
+        #map {
+            width: 100%;
+            height: 500px;
+        }
+    </style>
+</head>
+<body>
+    <div id='map'></div>
+    <div id='info'>
+        <p>Latitude: <span id="latitude"></span></p>
+        <p>Longitude: <span id="longitude"></span></p>
+    </div>
+
+    <script>
+        // Get token from the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const mapboxToken = urlParams.get('mapboxToken');
+        const glideToken = urlParams.get('glideToken');
+        const appId = urlParams.get('appId');
+        const tableId = urlParams.get('tableId');
+        const rowId = urlParams.get('rowId');
+        const columnName = urlParams.get('columnName');
+        
+        glideToken = "7d429892-ad13-499b-a8f6-acdf5160eaa9"
+        mapboxgl.accessToken = "pk.eyJ1IjoidHlsZXJib2x6IiwiYSI6ImNsbHRtcWJidDBhMnczbHAzYzhwMWM5Z2wifQ.6Fb-tDsN7yIERgI4OjwgGQ";
+        glideToken = "7d429892-ad13-499b-a8f6-acdf5160eaa9"
+        // Initialize the map centered on the U.S. and with a zoom level that shows most of the U.S.
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/satellite-streets-v11',
+            center: [-95, 37],  // Approximate center of the U.S.
+            zoom: 4
+        });
+
+        let marker;
+
+        map.on('click', function(e) {
+            const latitude = e.lngLat.lat;
+            const longitude = e.lngLat.lng;
+
+            // Display latitude and longitude.
+            document.getElementById('latitude').textContent = latitude.toFixed(4);
+            document.getElementById('longitude').textContent = longitude.toFixed(4);
+
+            // Remove existing marker.
+            if (marker) {
+                marker.remove();
+            }
+
+            // Add a new marker.
+            marker = new mapboxgl.Marker()
+                .setLngLat([longitude, latitude])
+                .addTo(map);
+
+            // Update coordinates in Glide table.
+            updateGlideTableCoordinates(latitude, longitude);
+        });
+
+        function updateGlideTableCoordinates(latitude, longitude) {
+            // Define the API endpoint and request headers.
+            const endpoint = 'https://api.glideapp.io/api/function/mutateTables';
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${glideToken}`  // assuming glideToken is in global scope
+            };
+
+            // Construct the data payload.
+            const data = {
+                appID: appId,  // assuming appId is in global scope
+                mutations: [
+                    {
+                        kind: "set-columns-in-row",
+                        tableName: tableId,  // assuming tableId is in global scope
+                        columnValues: {
+                            // ... other columns ...
+                            columnName: `${latitude},${longitude}`  // update coordinates
+                        },
+                        rowID: rowId  // assuming rowId is in global scope
+                    }
+                ]
+            };
+
+            // Make the fetch call.
+            fetch(endpoint, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Data updated successfully:', data);
+            })
+            .catch(error => {
+                console.error('Error updating data:', error);
+            });
+        }
+    </script>
+</body>
+</html>
