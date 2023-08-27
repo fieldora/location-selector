@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapbox Location Picker</title>
+    <script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.7.0/mapbox-gl-geocoder.min.js'></script>
+    <link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.7.0/mapbox-gl-geocoder.css' type='text/css' />
     <script src='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js'></script>
     <link href='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css' rel='stylesheet' />
     <style>
@@ -16,10 +18,6 @@
 </head>
 <body>
     <div id='map'></div>
-    <div id='info'>
-        <p>Latitude: <span id="latitude"></span></p>
-        <p>Longitude: <span id="longitude"></span></p>
-    </div>
 
     <script>
         // Get token from the URL
@@ -41,7 +39,15 @@
             center: [-95, 37],  // Approximate center of the U.S.
             zoom: 4
         });
-
+        
+        const geocoder = new MapboxGeocoder({
+            accessToken: mapboxgl.accessToken,
+            mapboxgl: mapboxgl,
+            placeholder: 'Search for an address'
+        });
+        
+        map.addControl(geocoder);
+        
         let marker;
 
         map.on('click', function(e) {
@@ -62,6 +68,24 @@
                 .setLngLat([longitude, latitude])
                 .addTo(map);
 
+            // Update coordinates in Glide table.
+            updateGlideTableCoordinates(latitude, longitude);
+        });
+        
+        geocoder.on('result', function(e) {
+            const latitude = e.result.geometry.coordinates[1];
+            const longitude = e.result.geometry.coordinates[0];
+        
+            // Remove existing marker.
+            if (marker) {
+                marker.remove();
+            }
+        
+            // Add a new marker.
+            marker = new mapboxgl.Marker()
+                .setLngLat([longitude, latitude])
+                .addTo(map);
+        
             // Update coordinates in Glide table.
             updateGlideTableCoordinates(latitude, longitude);
         });
