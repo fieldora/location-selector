@@ -25,7 +25,7 @@
         // Get token from the URL
         const urlParams = new URLSearchParams(window.location.search);
         const mapboxToken = urlParams.get('mapboxToken');
-        const glideToken = urlParams.get('glideToken');
+        let glideToken = urlParams.get('glideToken');
         const appId = urlParams.get('appId');
         const tableId = urlParams.get('tableId');
         const rowId = urlParams.get('rowId');
