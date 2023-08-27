@@ -29,8 +29,7 @@
         const rowId = urlParams.get('rowId');
         const columnName = urlParams.get('columnName');
         
-        glideToken = "7d429892-ad13-499b-a8f6-acdf5160eaa9"
-        mapboxgl.accessToken = "pk.eyJ1IjoidHlsZXJib2x6IiwiYSI6ImNsbHRtcWJidDBhMnczbHAzYzhwMWM5Z2wifQ.6Fb-tDsN7yIERgI4OjwgGQ";
+        mapboxgl.accessToken = mapboxToken;
         glideToken = "7d429892-ad13-499b-a8f6-acdf5160eaa9"
         // Initialize the map centered on the U.S. and with a zoom level that shows most of the U.S.
         const map = new mapboxgl.Map({
