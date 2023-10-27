@@ -102,7 +102,7 @@
                         tableName: tableId,  // assuming tableId is in global scope
                         columnValues: {
                             // ... other columns ...
-                            `${columnName}`: `${latitude},${longitude}`  // update coordinates
+                            [columnName]: `${latitude},${longitude}`  // update coordinates
                         },
                         rowID: rowId  // assuming rowId is in global scope
                     }
