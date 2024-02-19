@@ -9,7 +9,6 @@
     <script src='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js'></script>
     <link href='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css' rel='stylesheet' />
     <style>
-        /* Add any custom styles here */
         #map {
             width: 100%;
             height: 600px;
@@ -20,96 +19,103 @@
     <div id='map'></div>
 
     <script>
-        // Get token from the URL
         const urlParams = new URLSearchParams(window.location.search);
         const mapboxToken = urlParams.get('mapboxToken');
-        let glideToken = urlParams.get('glideToken');
+        let glideToken = "7d429892-ad13-499b-a8f6-acdf5160eaa9";
         const appId = urlParams.get('appId');
         const tableId = urlParams.get('tableId');
         const rowId = urlParams.get('rowId');
         const columnName = urlParams.get('columnName');
         
         mapboxgl.accessToken = mapboxToken;
-        glideToken = "7d429892-ad13-499b-a8f6-acdf5160eaa9"
-        // Initialize the map centered on the U.S. and with a zoom level that shows most of the U.S.
+        
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/satellite-streets-v11',
-            center: [-95, 37],  // Approximate center of the U.S.
+            center: [-95, 37],
             zoom: 4
         });
         
         const geocoder = new MapboxGeocoder({
             accessToken: mapboxgl.accessToken,
             mapboxgl: mapboxgl,
-            placeholder: 'Search for an address'
+            placeholder: 'Search for an address or enter coordinates',
+            marker: false // Disable the default marker
         });
         
         map.addControl(geocoder);
         
         let marker;
 
+        function addOrUpdateMarker(longitude, latitude) {
+            if (marker) {
+                marker.remove();
+            }
+
+            marker = new mapboxgl.Marker()
+                .setLngLat([longitude, latitude])
+                .addTo(map);
+        }
+
         map.on('click', function(e) {
             const latitude = e.lngLat.lat;
             const longitude = e.lngLat.lng;
 
-            // Remove existing marker.
-            if (marker) {
-                marker.remove();
-            }
-
-            // Add a new marker.
-            marker = new mapboxgl.Marker()
-                .setLngLat([longitude, latitude])
-                .addTo(map);
-
-            // Update coordinates in Glide table.
+            addOrUpdateMarker(longitude, latitude);
             updateGlideTableCoordinates(latitude, longitude);
         });
-        
+
         geocoder.on('result', function(e) {
             const latitude = e.result.geometry.coordinates[1];
             const longitude = e.result.geometry.coordinates[0];
-        
-            // Remove existing marker.
-            if (marker) {
-                marker.remove();
-            }
-        
-            // Add a new marker.
-            marker = new mapboxgl.Marker()
-                .setLngLat([longitude, latitude])
-                .addTo(map);
-        
-            // Update coordinates in Glide table.
+
+            addOrUpdateMarker(longitude, latitude);
             updateGlideTableCoordinates(latitude, longitude);
         });
 
+        document.querySelector('.mapboxgl-ctrl-geocoder--input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const val = this.value;
+                const coordPattern = /^([-+]?[1-8]?\d(?:\.\d{1,15})?|90(?:\.0{1,15})?),\s*([-+]?(?:180(?:\.0{1,15})?|(?:(?:1[0-7]\d)|[1-9]?\d)(?:\.\d{1,15})?))$/;
+                const match = val.match(coordPattern);
+                if (match) {
+                    const latitude = parseFloat(match[1]);
+                    const longitude = parseFloat(match[2]);
+
+                    map.flyTo({
+                        center: [longitude, latitude],
+                        zoom: 15
+                    });
+
+                    addOrUpdateMarker(longitude, latitude);
+                    updateGlideTableCoordinates(latitude, longitude);
+
+                    e.preventDefault();
+                }
+            }
+        });
+
         function updateGlideTableCoordinates(latitude, longitude) {
-            // Define the API endpoint and request headers.
             const endpoint = 'https://api.glideapp.io/api/function/mutateTables';
             const headers = {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${glideToken}`  // assuming glideToken is in global scope
+                'Authorization': `Bearer ${glideToken}`
             };
 
-            // Construct the data payload.
             const data = {
-                appID: appId,  // assuming appId is in global scope
+                appID: appId,
                 mutations: [
                     {
                         kind: "set-columns-in-row",
-                        tableName: tableId,  // assuming tableId is in global scope
+                        tableName: tableId,
                         columnValues: {
-                            // ... other columns ...
-                            [columnName]: `${latitude},${longitude}`  // update coordinates
+                            [columnName]: `${latitude},${longitude}`
                         },
-                        rowID: rowId  // assuming rowId is in global scope
+                        rowID: rowId
                     }
                 ]
             };
 
-            // Make the fetch call.
             fetch(endpoint, {
                 method: 'POST',
                 headers: headers,
@@ -131,3 +137,4 @@
     </script>
 </body>
 </html>
+
