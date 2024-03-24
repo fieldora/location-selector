@@ -87,16 +87,16 @@
                 const match = val.match(coordPattern);
                 if (match) {
                     const latitude = parseFloat(match[1]);
-                    const longitude = parseFloat(match[2]);
-
+                    const longitude = parseFloat(match[5]); // This line should target the correct capturing group for longitude
+        
                     map.flyTo({
                         center: [longitude, latitude],
                         zoom: 15
                     });
-
+        
                     addOrUpdateMarker(longitude, latitude);
                     updateGlideTableCoordinates(latitude, longitude);
-
+        
                     e.preventDefault();
                 }
             }
