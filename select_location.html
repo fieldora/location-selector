@@ -76,7 +76,7 @@
         document.querySelector('.mapboxgl-ctrl-geocoder--input').addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 const val = this.value;
-                const coordPattern = /^([-+]?[1-8]?\d(?:\.\d{1,15})?|90(?:\.0{1,15})?),\s*([-+]?(?:180(?:\.0{1,15})?|(?:(?:1[0-7]\d)|[1-9]?\d)(?:\.\d{1,15})?))$/;
+                const coordPattern = /^\s*([-+]?([1-8]?\d(\.\d+)?|90(\.0+)?)),\s*([-+]?((180(\.0+)?|([1-9]?\d(\.\d+)?))))\s*$/;
                 const match = val.match(coordPattern);
                 if (match) {
                     const latitude = parseFloat(match[1]);
