@@ -28,7 +28,7 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const mapboxToken = urlParams.get('mapboxToken');
-        let glideToken = "7d429892-ad13-499b-a8f6-acdf5160eaa9";
+        let glideToken = urlParams.get('glideToken');
         const appId = urlParams.get('appId');
         const tableId = urlParams.get('tableId');
         const rowId = urlParams.get('rowId');
