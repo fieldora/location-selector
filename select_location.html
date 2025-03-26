@@ -28,14 +28,15 @@
             background-color: white;
             border-radius: 4px;
             box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+            overflow: hidden;
         }
         #search-input {
             flex-grow: 1;
             padding: 10px;
             border: none;
-            border-radius: 4px 0 0 4px;
             font-size: 16px;
             box-sizing: border-box;
+            margin: 0;
         }
         #search-input.is-coordinates {
             color: #3880ff;
@@ -45,12 +46,12 @@
             outline: none;
         }
         #search-button {
+            width: 40px;
+            min-width: 40px;
             border: none;
             background-color: #3880ff;
             color: white;
-            padding: 0 15px;
             cursor: pointer;
-            border-radius: 0 4px 4px 0;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -60,26 +61,26 @@
         }
         /* Search icon */
         .search-icon {
-            width: 16px;
-            height: 16px;
-            display: inline-block;
+            width: 18px;
+            height: 18px;
             position: relative;
+            display: inline-block;
         }
         .search-icon:before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
-            width: 10px;
-            height: 10px;
+            width: 12px;
+            height: 12px;
             border: 2px solid white;
             border-radius: 50%;
         }
         .search-icon:after {
             content: '';
             position: absolute;
-            top: 11px;
-            left: 11px;
+            top: 13px;
+            left: 13px;
             width: 2px;
             height: 6px;
             background-color: white;
@@ -135,17 +136,13 @@
         }
         /* Clear button */
         #clear-input {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
             background: none;
             border: none;
             cursor: pointer;
             font-size: 18px;
             line-height: 1;
             color: #666;
-            padding: 0;
+            padding: 0 8px;
             display: none;
         }
         #clear-input:hover {
@@ -158,7 +155,7 @@
         <div class="spinner"></div>
     </div>
     <div id="search-container">
-        <input type="text" id="search-input" placeholder="Search address or enter coordinates (lat, lng)">
+        <input type="text" id="search-input" placeholder="Search address or coordinates">
         <button id="clear-input">&times;</button>
         <button id="search-button" title="Search">
             <span class="search-icon"></span>
