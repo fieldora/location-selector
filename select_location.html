@@ -97,6 +97,9 @@
             z-index: 9999;
             display: none;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            max-width: 80%;
+            text-align: center;
+            word-break: break-word;
         }
         .success {
             background-color: #4CAF50;
@@ -199,6 +202,11 @@
                 const rowId = urlParams.get('rowId');
                 const columnName = urlParams.get('columnName');
                 
+                // Optional parameters
+                const initialLat = parseFloat(urlParams.get('lat')) || 37;
+                const initialLng = parseFloat(urlParams.get('lng')) || -95;
+                const initialZoom = parseInt(urlParams.get('zoom')) || 4;
+                
                 // Validate required parameters
                 if (!mapboxToken || !glideToken || !appId || !tableId || !rowId || !columnName) {
                     throw new Error('Missing required parameters');
@@ -210,8 +218,8 @@
                 const map = new mapboxgl.Map({
                     container: 'map',
                     style: 'mapbox://styles/mapbox/satellite-streets-v11',
-                    center: [-95, 37],
-                    zoom: 4
+                    center: [initialLng, initialLat],
+                    zoom: initialZoom
                 });
                 
                 // Add navigation controls
@@ -265,7 +273,8 @@
                         if (isValidCoordinate(latitude, longitude)) {
                             map.flyTo({
                                 center: [longitude, latitude],
-                                zoom: 15
+                                zoom: 15,
+                                essential: true // this animation is considered essential for the movement
                             });
                             
                             addOrUpdateMarker(longitude, latitude);
@@ -314,7 +323,8 @@
                                 
                                 map.flyTo({
                                     center: [longitude, latitude],
-                                    zoom: 15
+                                    zoom: 15,
+                                    essential: true // this animation is considered essential for the movement
                                 });
                                 
                                 addOrUpdateMarker(longitude, latitude);
@@ -400,8 +410,11 @@
                     // Update coordinates when marker is dragged
                     marker.on('dragend', function() {
                         const lngLat = marker.getLngLat();
+                        showStatus(`Coordinates: ${lngLat.lat.toFixed(6)}, ${lngLat.lng.toFixed(6)}`, 'success', 2000);
                         debouncedUpdate(lngLat.lat, lngLat.lng);
                     });
+                    
+                    return marker;
                 }
 
                 // Update coordinates in Glide table
