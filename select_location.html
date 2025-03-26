@@ -150,7 +150,11 @@
                     placeholder: 'Search address or enter coordinates (lat, lng)',
                     marker: false,
                     flyTo: false, // We'll handle flyTo ourselves
-                    enableEventLogging: false // Disable unnecessary Mapbox event logging
+                    enableEventLogging: false, // Disable unnecessary Mapbox event logging
+                    // Add these parameters to prevent the geocoder from trying to geocode coordinates
+                    countries: null,
+                    types: null,
+                    bbox: null
                 });
                 
                 // Add geocoder to top-left position
@@ -329,10 +333,8 @@
                                 e.preventDefault();
                                 e.stopPropagation();
                                 
-                                // Clear the input to prevent further processing
-                                setTimeout(() => {
-                                    geocoder._clear();
-                                }, 10);
+                                // Clear the input field
+                                geocoder.clear();
                                 
                                 const latitude = parseFloat(match[1]);
                                 const longitude = parseFloat(match[5]);
@@ -356,6 +358,20 @@
                         }
                     });
                 }
+                
+                // Add error handler for geocoder
+                geocoder.on('error', function(e) {
+                    console.warn('Geocoder error:', e);
+                    // Suppress the error if it's related to coordinate search
+                    if (geocoderInput && coordPattern.test(geocoderInput.value.trim())) {
+                        e.preventDefault();
+                        return false;
+                    }
+                    showStatus('Search error. Please try a different query.', 'error');
+                });
+                
+                // Declare coordPattern outside for use in the error handler
+                const coordPattern = /^\s*([-+]?([1-8]?\d(\.\d+)?|90(\.0+)?)),\s*([-+]?(180(\.0+)?|((1[0-7]\d(\.\d+)?)|([1-9]?\d(\.\d+)?))))\s*$/;
                 
                 // Clean up resources when page is unloaded
                 window.addEventListener('beforeunload', function() {
