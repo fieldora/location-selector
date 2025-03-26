@@ -24,13 +24,16 @@
             z-index: 1;
             width: 300px;
             max-width: calc(100% - 60px);
-        }
-        #search-input {
-            width: 100%;
-            padding: 10px;
-            border: none;
+            display: flex;
+            background-color: white;
             border-radius: 4px;
             box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+        }
+        #search-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px 0 0 4px;
             font-size: 16px;
             box-sizing: border-box;
         }
@@ -40,7 +43,47 @@
         }
         #search-input:focus {
             outline: none;
-            box-shadow: 0 0 0 2px rgba(56, 128, 255, 0.5);
+        }
+        #search-button {
+            border: none;
+            background-color: #3880ff;
+            color: white;
+            padding: 0 15px;
+            cursor: pointer;
+            border-radius: 0 4px 4px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #search-button:hover {
+            background-color: #2970e6;
+        }
+        /* Search icon */
+        .search-icon {
+            width: 16px;
+            height: 16px;
+            display: inline-block;
+            position: relative;
+        }
+        .search-icon:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 10px;
+            height: 10px;
+            border: 2px solid white;
+            border-radius: 50%;
+        }
+        .search-icon:after {
+            content: '';
+            position: absolute;
+            top: 11px;
+            left: 11px;
+            width: 2px;
+            height: 6px;
+            background-color: white;
+            transform: rotate(-45deg);
         }
         #status-message {
             position: fixed;
@@ -117,6 +160,9 @@
     <div id="search-container">
         <input type="text" id="search-input" placeholder="Search address or enter coordinates (lat, lng)">
         <button id="clear-input">&times;</button>
+        <button id="search-button" title="Search">
+            <span class="search-icon"></span>
+        </button>
     </div>
     <div id='map'></div>
     <div id='status-message'></div>
@@ -206,37 +252,47 @@
                     searchInput.focus();
                 });
                 
+                // Perform search function
+                function performSearch() {
+                    const val = searchInput.value.trim();
+                    
+                    if (!val) return;
+                    
+                    // Check if input is coordinates
+                    const match = val.match(coordPattern);
+                    
+                    if (match) {
+                        const latitude = parseFloat(match[1]);
+                        const longitude = parseFloat(match[5]);
+                        
+                        if (isValidCoordinate(latitude, longitude)) {
+                            map.flyTo({
+                                center: [longitude, latitude],
+                                zoom: 15
+                            });
+                            
+                            addOrUpdateMarker(longitude, latitude);
+                            debouncedUpdate(latitude, longitude);
+                            
+                            showStatus(`Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`, 'success');
+                        } else {
+                            showStatus('Invalid coordinates', 'error');
+                        }
+                    } else {
+                        // Forward geocode the address using the Mapbox geocoding API
+                        geocodeAddress(val);
+                    }
+                }
+                
                 // Handle key events for search
                 searchInput.addEventListener('keydown', function(e) {
                     if (e.key === 'Enter') {
-                        const val = this.value.trim();
-                        
-                        // Check if input is coordinates
-                        const match = val.match(coordPattern);
-                        
-                        if (match) {
-                            const latitude = parseFloat(match[1]);
-                            const longitude = parseFloat(match[5]);
-                            
-                            if (isValidCoordinate(latitude, longitude)) {
-                                map.flyTo({
-                                    center: [longitude, latitude],
-                                    zoom: 15
-                                });
-                                
-                                addOrUpdateMarker(longitude, latitude);
-                                debouncedUpdate(latitude, longitude);
-                                
-                                showStatus(`Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`, 'success');
-                            } else {
-                                showStatus('Invalid coordinates', 'error');
-                            }
-                        } else {
-                            // Forward geocode the address using the Mapbox geocoding API
-                            geocodeAddress(val);
-                        }
+                        performSearch();
                     }
                 });
+                
+                // Handle search button click
+                document.getElementById('search-button').addEventListener('click', performSearch);
                 
                 // Forward geocoding function
                 function geocodeAddress(query) {
