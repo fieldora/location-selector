@@ -21,6 +21,11 @@
         .mapboxgl-ctrl-geocoder--error {
             display: none !important;
         }
+        /* Added styling for coordinate input */
+        .mapboxgl-ctrl-geocoder--input.is-coordinates {
+            color: #3880ff;
+            font-weight: 500;
+        }
         #status-message {
             position: fixed;
             bottom: 20px;
@@ -138,12 +143,14 @@
                 // Add navigation controls
                 map.addControl(new mapboxgl.NavigationControl(), 'top-right');
                 
-                // Initialize geocoder
+                // Initialize geocoder with custom filtering to better handle coordinates
                 const geocoder = new MapboxGeocoder({
                     accessToken: mapboxgl.accessToken,
                     mapboxgl: mapboxgl,
-                    placeholder: 'Search for an address or enter coordinates (lat,lng)',
-                    marker: false
+                    placeholder: 'Search address or enter coordinates (lat, lng)',
+                    marker: false,
+                    flyTo: false, // We'll handle flyTo ourselves
+                    enableEventLogging: false // Disable unnecessary Mapbox event logging
                 });
                 
                 // Add geocoder to top-left position
@@ -295,9 +302,22 @@
                     debouncedUpdate(latitude, longitude);
                 });
 
-                // Direct coordinate entry support
+                // Direct coordinate entry support with improved handling
                 const geocoderInput = document.querySelector('.mapboxgl-ctrl-geocoder--input');
                 if (geocoderInput) {
+                    geocoderInput.addEventListener('input', function() {
+                        const val = this.value.trim();
+                        // Test if input matches coordinate pattern
+                        const coordPattern = /^\s*([-+]?([1-8]?\d(\.\d+)?|90(\.0+)?)),\s*([-+]?(180(\.0+)?|((1[0-7]\d(\.\d+)?)|([1-9]?\d(\.\d+)?))))\s*$/;
+                        
+                        // If it looks like coordinates, add a class for styling
+                        if (coordPattern.test(val)) {
+                            this.classList.add('is-coordinates');
+                        } else {
+                            this.classList.remove('is-coordinates');
+                        }
+                    });
+                    
                     geocoderInput.addEventListener('keydown', function(e) {
                         if (e.key === 'Enter') {
                             const val = this.value.trim();
@@ -305,18 +325,33 @@
                             const match = val.match(coordPattern);
                             
                             if (match) {
+                                // Prevent default geocoder behavior
+                                e.preventDefault();
+                                e.stopPropagation();
+                                
+                                // Clear the input to prevent further processing
+                                setTimeout(() => {
+                                    geocoder._clear();
+                                }, 10);
+                                
                                 const latitude = parseFloat(match[1]);
                                 const longitude = parseFloat(match[5]);
                                 
-                                map.flyTo({
-                                    center: [longitude, latitude],
-                                    zoom: 15
-                                });
+                                if (isValidCoordinate(latitude, longitude)) {
+                                    map.flyTo({
+                                        center: [longitude, latitude],
+                                        zoom: 15
+                                    });
+                                    
+                                    addOrUpdateMarker(longitude, latitude);
+                                    debouncedUpdate(latitude, longitude);
+                                    
+                                    showStatus(`Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`, 'success');
+                                } else {
+                                    showStatus('Invalid coordinates', 'error');
+                                }
                                 
-                                addOrUpdateMarker(longitude, latitude);
-                                debouncedUpdate(latitude, longitude);
-                                
-                                e.preventDefault();
+                                return false;
                             }
                         }
                     });
