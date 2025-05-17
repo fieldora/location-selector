@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mapbox Location Picker</title>
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+        /* Custom search box styling */
+        #search-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1;
+            width: 300px;
+            max-width: calc(100% - 60px);
+            display: flex;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        #search-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: none;
+            font-size: 16px;
+            box-sizing: border-box;
+            margin: 0;
+        }
+        #search-input.is-coordinates {
+            color: #3880ff;
+            font-weight: 500;
+        }
+        #search-input:focus {
+            outline: none;
+        }
+        #search-button {
+            width: 40px;
+            min-width: 40px;
+            border: none;
+            background-color: #3880ff;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #search-button:hover {
+            background-color: #2970e6;
+        }
+        /* Search icon */
+        .search-icon {
+            width: 18px;
+            height: 18px;
+            position: relative;
+            display: inline-block;
+        }
+        .search-icon:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 12px;
+            height: 12px;
+            border: 2px solid white;
+            border-radius: 50%;
+        }
+        .search-icon:after {
+            content: '';
+            position: absolute;
+            top: 13px;
+            left: 13px;
+            width: 2px;
+            height: 6px;
+            background-color: white;
+            transform: rotate(-45deg);
+        }
+        #status-message {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: 500;
+            z-index: 9999;
+            display: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            max-width: 80%;
+            text-align: center;
+            word-break: break-word;
+        }
+        .success {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .error {
+            background-color: #F44336;
+            color: white;
+        }
+        .loading {
+            background-color: #2196F3;
+            color: white;
+        }
+        #loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+        .spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Clear button */
+        #clear-input {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            color: #666;
+            padding: 0 8px;
+            display: none;
+        }
+        #clear-input:hover {
+            color: #333;
+        }
+        /* Debug console */
+        #debug-toggle {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            cursor: pointer;
+            z-index: 10;
+            font-size: 14px;
+        }
+        #debug-console {
+            position: absolute;
+            bottom: 50px;
+            right: 10px;
+            width: 400px;
+            max-width: 80%;
+            height: 300px;
+            background-color: rgba(0, 0, 0, 0.85);
+            color: #0f0;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-y: auto;
+            z-index: 10;
+            display: none;
+        }
+        #debug-console p {
+            margin: 5px 0;
+            word-break: break-word;
+        }
+        #debug-clear {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .log-info { color: #4CAF50; }
+        .log-warn { color: #FFC107; }
+        .log-error { color: #F44336; }
+        .log-debug { color: #03A9F4; }
+    </style>
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+    <div id="search-container">
+        <input type="text" id="search-input" placeholder="Search address or coordinates">
+        <button id="clear-input">&times;</button>
+        <button id="search-button" title="Search">
+            <span class="search-icon"></span>
+        </button>
+    </div>
+    <div id='map'></div>
+    <div id='status-message'></div>
+    
+    <!-- Debug elements -->
+    <button id="debug-toggle">Show Debug Console</button>
+    <div id="debug-console">
+        <button id="debug-clear">Clear</button>
+    </div>
+
+    <script>
+        /**
+         * Logger - Custom logging utility for debugging
+         */
+        class Logger {
+            constructor() {
+                this.console = document.getElementById('debug-console');
+                this.isEnabled = false;
+                this.maxEntries = 100;
+                
+                // Initialize debug console
+                this.setupDebugConsole();
+            }
+            
+            setupDebugConsole() {
+                const toggleButton = document.getElementById('debug-toggle');
+                const clearButton = document.getElementById('debug-clear');
+                
+                toggleButton.addEventListener('click', () => {
+                    this.isEnabled = !this.isEnabled;
+                    this.console.style.display = this.isEnabled ? 'block' : 'none';
+                    toggleButton.textContent = this.isEnabled ? 'Hide Debug Console' : 'Show Debug Console';
+                });
+                
+                clearButton.addEventListener('click', () => {
+                    this.clear();
+                });
+            }
+            
+            log(message, type = 'info', data = null) {
+                // Always log to browser console
+                const consoleMethod = type === 'error' ? console.error : 
+                                    type === 'warn' ? console.warn : 
+                                    type === 'debug' ? console.debug : console.log;
+                
+                if (data) {
+                    consoleMethod(`[${type.toUpperCase()}] ${message}`, data);
+                } else {
+                    consoleMethod(`[${type.toUpperCase()}] ${message}`);
+                }
+                
+                // Add to debug console if enabled
+                if (this.console) {
+                    const entry = document.createElement('p');
+                    entry.className = `log-${type}`;
+                    
+                    const timestamp = new Date().toLocaleTimeString();
+                    let logMessage = `[${timestamp}] ${message}`;
+                    
+                    if (data) {
+                        try {
+                            const jsonData = JSON.stringify(data, null, 2);
+                            logMessage += `\n${jsonData}`;
+                        } catch (e) {
+                            logMessage += `\n[Object data cannot be stringified]`;
+                        }
+                    }
+                    
+                    entry.innerText = logMessage;
+                    this.console.appendChild(entry);
+                    
+                    // Auto-scroll to bottom
+                    this.console.scrollTop = this.console.scrollHeight;
+                    
+                    // Limit number of entries
+                    while (this.console.children.length > this.maxEntries + 1) { // +1 for clear button
+                        this.console.removeChild(this.console.children[1]); // Skip the first child which is the clear button
+                    }
+                }
+            }
+            
+            info(message, data = null) {
+                this.log(message, 'info', data);
+            }
+            
+            warn(message, data = null) {
+                this.log(message, 'warn', data);
+            }
+            
+            error(message, data = null) {
+                this.log(message, 'error', data);
+            }
+            
+            debug(message, data = null) {
+                this.log(message, 'debug', data);
+            }
+            
+            clear() {
+                if (this.console) {
+                    // Remove all children except the clear button
+                    while (this.console.children.length > 1) {
+                        this.console.removeChild(this.console.children[1]);
+                    }
+                }
+                this.info('Console cleared');
+            }
+        }
+        
+        /**
+         * LocationPicker - Main application class
+         */
+        class LocationPicker {
+            constructor() {
+                // Initialize logger
+                this.logger = new Logger();
+                
+                // App state
+                this.map = null;
+                this.marker = null;
+                this.config = {};
+                
+                // Init app
+                this.init();
+            }
+            
+            /**
+             * Initialize the application
+             */
+            init() {
+                this.logger.info('Application initializing...');
+                
+                try {
+                    // Parse and validate URL parameters
+                    this.parseUrlParameters();
+                    
+                    // Setup map
+                    this.initMap();
+                    
+                    // Setup event listeners
+                    this.setupEventListeners();
+                    
+                    this.logger.info('Application initialized successfully');
+                } catch (error) {
+                    this.handleInitializationError(error);
+                }
+            }
+            
+            /**
+             * Parse URL parameters and validate required ones
+             */
+            parseUrlParameters() {
+                this.logger.debug('Parsing URL parameters');
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                
+                // Required parameters
+                this.config.mapboxToken = urlParams.get('mapboxToken');
+                this.config.glideToken = urlParams.get('glideToken');
+                this.config.appId = urlParams.get('appId');
+                this.config.tableId = urlParams.get('tableId');
+                this.config.rowId = urlParams.get('rowId');
+                this.config.columnName = urlParams.get('columnName');
+                
+                // Optional parameters with defaults
+                this.config.initialLat = parseFloat(urlParams.get('lat')) || 37;
+                this.config.initialLng = parseFloat(urlParams.get('lng')) || -95;
+                this.config.initialZoom = parseInt(urlParams.get('zoom')) || 4;
+                
+                // Validate required parameters
+                const requiredParams = ['mapboxToken', 'glideToken', 'appId', 'tableId', 'rowId', 'columnName'];
+                const missingParams = requiredParams.filter(param => !this.config[param]);
+                
+                if (missingParams.length > 0) {
+                    throw new Error(`Missing required parameters: ${missingParams.join(', ')}`);
+                }
+                
+                this.logger.info('URL parameters parsed successfully', {
+                    appId: this.config.appId,
+                    tableId: this.config.tableId,
+                    initialPosition: {
+                        lat: this.config.initialLat,
+                        lng: this.config.initialLng,
+                        zoom: this.config.initialZoom
+                    }
+                });
+            }
+            
+            /**
+             * Initialize Mapbox map
+             */
+            initMap() {
+                this.logger.debug('Initializing Mapbox map');
+                
+                mapboxgl.accessToken = this.config.mapboxToken;
+                
+                this.map = new mapboxgl.Map({
+                    container: 'map',
+                    style: 'mapbox://styles/mapbox/satellite-streets-v11',
+                    center: [this.config.initialLng, this.config.initialLat],
+                    zoom: this.config.initialZoom
+                });
+                
+                // Add navigation controls
+                this.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+                
+                // Setup map event handlers
+                this.map.on('load', () => this.handleMapLoad());
+                this.map.on('error', (e) => {
+                    this.logger.error('Mapbox map error', e);
+                    this.showStatus('Error loading map: ' + e.error.message, 'error');
+                });
+                
+                // Add click handler
+                this.map.on('click', (e) => this.handleMapClick(e));
+                
+                this.logger.info('Mapbox map initialized');
+            }
+            
+            /**
+             * Handle map load event
+             */
+            handleMapLoad() {
+                this.logger.info('Map loaded successfully');
+                document.getElementById('loading-overlay').style.display = 'none';
+                
+                // Add user location control
+                this.setupGeolocationControl();
+            }
+            
+            /**
+             * Setup geolocation control
+             */
+            setupGeolocationControl() {
+                this.logger.debug('Setting up geolocation control');
+                
+                const geolocateControl = new mapboxgl.GeolocateControl({
+                    positionOptions: {
+                        enableHighAccuracy: true,
+                        timeout: 15000
+                    },
+                    trackUserLocation: false,
+                    showUserLocation: true,
+                    showAccuracyCircle: true
+                });
+                
+                this.map.addControl(geolocateControl, 'top-right');
+                
+                // Error handling for geolocation
+                geolocateControl.on('error', (e) => {
+                    let errorMsg = 'Unable to determine your location';
+                    
+                    if (e.code === 1) { // PERMISSION_DENIED
+                        errorMsg = 'Location access denied. Please enable location services.';
+                    } else if (e.code === 2) { // POSITION_UNAVAILABLE
+                        errorMsg = 'Your location is currently unavailable.';
+                    } else if (e.code === 3) { // TIMEOUT
+                        errorMsg = 'Location request timed out. Please try again.';
+                    }
+                    
+                    this.logger.error('Geolocation error', { code: e.code, message: errorMsg });
+                    this.showStatus(errorMsg, 'error');
+                });
+                
+                // Handle successful geolocation
+                geolocateControl.on('geolocate', (position) => {
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+                    
+                    this.logger.info('User geolocation successful', { lat: latitude, lng: longitude });
+                    
+                    // Add marker at user's location
+                    this.addOrUpdateMarker(longitude, latitude);
+                    this.debouncedUpdateGlideTable(latitude, longitude);
+                });
+                
+                this.logger.info('Geolocation control setup complete');
+            }
+            
+            /**
+             * Setup event listeners for UI elements
+             */
+            setupEventListeners() {
+                this.logger.debug('Setting up event listeners');
+                
+                const searchInput = document.getElementById('search-input');
+                const clearButton = document.getElementById('clear-input');
+                const searchButton = document.getElementById('search-button');
+                
+                // Search input change handler
+                searchInput.addEventListener('input', () => {
+                    const val = searchInput.value.trim();
+                    
+                    // Show/hide clear button
+                    clearButton.style.display = val ? 'block' : 'none';
+                    
+                    // Add class for coordinate styling
+                    const coordPattern = this.getCoordinatePattern();
+                    if (coordPattern.test(val)) {
+                        searchInput.classList.add('is-coordinates');
+                    } else {
+                        searchInput.classList.remove('is-coordinates');
+                    }
+                });
+                
+                // Clear button handler
+                clearButton.addEventListener('click', () => {
+                    searchInput.value = '';
+                    searchInput.classList.remove('is-coordinates');
+                    clearButton.style.display = 'none';
+                    searchInput.focus();
+                    this.logger.debug('Search input cleared');
+                });
+                
+                // Search button click handler
+                searchButton.addEventListener('click', () => this.performSearch());
+                
+                // Search input key handler
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        this.performSearch();
+                    }
+                });
+                
+                // Create debounced update function
+                this.debouncedUpdateGlideTable = this.debounce(this.updateGlideTableCoordinates.bind(this), 500);
+                
+                // Clean up resources when page is unloaded
+                window.addEventListener('beforeunload', () => {
+                    this.logger.info('Page unloading, cleaning up resources');
+                    if (this.map) {
+                        this.map.remove();
+                    }
+                });
+                
+                this.logger.info('Event listeners setup complete');
+            }
+            
+            /**
+             * Perform search based on user input
+             */
+            performSearch() {
+                const searchInput = document.getElementById('search-input');
+                const val = searchInput.value.trim();
+                
+                if (!val) {
+                    this.logger.debug('Search performed with empty input');
+                    return;
+                }
+                
+                this.logger.info('Performing search', { query: val });
+                
+                // Check if input is coordinates
+                const coordPattern = this.getCoordinatePattern();
+                const match = val.match(coordPattern);
+                
+                if (match) {
+                    const latitude = parseFloat(match[1]);
+                    const longitude = parseFloat(match[5]);
+                    
+                    this.logger.debug('Detected coordinate input', { lat: latitude, lng: longitude });
+                    
+                    if (this.isValidCoordinate(latitude, longitude)) {
+                        this.map.flyTo({
+                            center: [longitude, latitude],
+                            zoom: 15,
+                            essential: true
+                        });
+                        
+                        this.addOrUpdateMarker(longitude, latitude);
+                        this.debouncedUpdateGlideTable(latitude, longitude);
+                        
+                        this.showStatus(`Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`, 'success');
+                        this.logger.info('Navigated to coordinates', { lat: latitude, lng: longitude });
+                    } else {
+                        this.showStatus('Invalid coordinates', 'error');
+                        this.logger.warn('Invalid coordinates entered', { lat: latitude, lng: longitude });
+                    }
+                } else {
+                    // Forward geocode the address
+                    this.geocodeAddress(val);
+                }
+            }
+            
+            /**
+             * Forward geocoding function to convert address to coordinates
+             */
+            geocodeAddress(query) {
+                if (!query) return;
+                
+                this.logger.info('Geocoding address', { query });
+                const loadingStatus = this.showStatus('Searching...', 'loading', 0);
+                
+                // Call the Mapbox Geocoding API
+                fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${this.config.mapboxToken}&limit=1`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`${response.status} ${response.statusText}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        loadingStatus.style.display = 'none';
+                        
+                        if (data.features && data.features.length > 0) {
+                            const feature = data.features[0];
+                            const [longitude, latitude] = feature.center;
+                            
+                            this.logger.info('Geocoding successful', { 
+                                place: feature.place_name,
+                                coordinates: { lat: latitude, lng: longitude }
+                            });
+                            
+                            this.map.flyTo({
+                                center: [longitude, latitude],
+                                zoom: 15,
+                                essential: true
+                            });
+                            
+                            this.addOrUpdateMarker(longitude, latitude);
+                            this.debouncedUpdateGlideTable(latitude, longitude);
+                            
+                            this.showStatus(`Location found: ${feature.place_name}`, 'success');
+                        } else {
+                            this.logger.warn('No geocoding results found', { query });
+                            this.showStatus('No results found', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        loadingStatus.style.display = 'none';
+                        this.logger.error('Geocoding error', { query, error: error.message });
+                        this.showStatus(`Search error: ${error.message}`, 'error');
+                    });
+            }
+            
+            /**
+             * Handle map click event
+             */
+            handleMapClick(e) {
+                const latitude = e.lngLat.lat;
+                const longitude = e.lngLat.lng;
+                
+                this.logger.info('Map clicked', { lat: latitude, lng: longitude });
+                
+                this.addOrUpdateMarker(longitude, latitude);
+                this.debouncedUpdateGlideTable(latitude, longitude);
+            }
+            
+            /**
+             * Add or update marker on the map
+             */
+            addOrUpdateMarker(longitude, latitude) {
+                if (this.marker) {
+                    this.logger.debug('Removing existing marker');
+                    this.marker.remove();
+                }
+                
+                this.logger.info('Adding marker', { lat: latitude, lng: longitude });
+                
+                this.marker = new mapboxgl.Marker({
+                    draggable: true,
+                    color: '#3880ff'
+                })
+                .setLngLat([longitude, latitude])
+                .addTo(this.map);
+                
+                // Update coordinates when marker is dragged
+                this.marker.on('dragend', () => {
+                    const lngLat = this.marker.getLngLat();
+                    
+                    this.logger.info('Marker dragged to new position', { 
+                        lat: lngLat.lat, 
+                        lng: lngLat.lng 
+                    });
+                    
+                    this.showStatus(`Coordinates: ${lngLat.lat.toFixed(6)}, ${lngLat.lng.toFixed(6)}`, 'success', 2000);
+                    this.debouncedUpdateGlideTable(lngLat.lat, lngLat.lng);
+                });
+                
+                return this.marker;
+            }
+            
+            /**
+             * Update coordinates in Glide table
+             */
+            updateGlideTableCoordinates(latitude, longitude) {
+                if (!this.isValidCoordinate(latitude, longitude)) {
+                    this.logger.error('Invalid coordinates for Glide update', { lat: latitude, lng: longitude });
+                    this.showStatus('Invalid coordinates', 'error');
+                    return;
+                }
+                
+                this.logger.info('Updating Glide table coordinates', { 
+                    lat: latitude, 
+                    lng: longitude,
+                    appId: this.config.appId,
+                    tableId: this.config.tableId,
+                    rowId: this.config.rowId,
+                    columnName: this.config.columnName
+                });
+                
+                const loadingStatus = this.showStatus('Updating coordinates...', 'loading', 0);
+                
+                const endpoint = 'https://api.glideapp.io/api/function/mutateTables';
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.config.glideToken}`
+                };
+                
+                const data = {
+                    appID: this.config.appId,
+                    mutations: [
+                        {
+                            kind: "set-columns-in-row",
+                            tableName: this.config.tableId,
+                            columnValues: {
+                                [this.config.columnName]: `${latitude},${longitude}`
+                            },
+                            rowID: this.config.rowId
+                        }
+                    ]
+                };
+                
+                fetch(endpoint, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(data)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(responseData => {
+                    loadingStatus.style.display = 'none';
+                    this.logger.info('Glide table updated successfully', { responseData });
+                    this.showStatus('Location updated successfully', 'success');
+                })
+                .catch(error => {
+                    loadingStatus.style.display = 'none';
+                    this.logger.error('Error updating Glide table', { error: error.message });
+                    this.showStatus(`Error updating location: ${error.message}`, 'error');
+                });
+            }
+            
+            /**
+             * Show status message to user
+             */
+            showStatus(message, type = 'success', duration = 3000) {
+                const statusElement = document.getElementById('status-message');
+                statusElement.textContent = message;
+                statusElement.className = type;
+                statusElement.style.display = 'block';
+                
+                this.logger.debug('Status message shown', { message, type, duration });
+                
+                if (duration > 0) {
+                    setTimeout(() => {
+                        statusElement.style.display = 'none';
+                    }, duration);
+                }
+                
+                return statusElement;
+            }
+            
+            /**
+             * Check if coordinates are valid
+             */
+            isValidCoordinate(lat, lng) {
+                return !isNaN(lat) && !isNaN(lng) && 
+                       lat >= -90 && lat <= 90 && 
+                       lng >= -180 && lng <= 180;
+            }
+            
+            /**
+             * Get coordinate pattern for validation
+             */
+            getCoordinatePattern() {
+                return /^\s*([-+]?([1-8]?\d(\.\d+)?|90(\.0+)?)),\s*([-+]?(180(\.0+)?|((1[0-7]\d(\.\d+)?)|([1-9]?\d(\.\d+)?))))\s*$/;
+            }
+            
+            /**
+             * Debounce function to limit API calls
+             */
+            debounce(func, delay) {
+                let timeout;
+                return function(...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), delay);
+                };
+            }
+            
+            /**
+             * Handle initialization error
+             */
+            handleInitializationError(error) {
+                this.logger.error('Initialization error', { message: error.message, stack: error.stack });
+                
+                document.getElementById('loading-overlay').innerHTML = 
+                    `<div style="text-align: center; padding: 20px;">
+                        <h3>Error Initializing Map</h3>
+                        <p>${error.message}</p>
+                        <button onclick="location.reload()">Reload Page</button>
+                    </div>`;
+            }
+        }
+        
+        // Initialize application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                // Start the application
+                const app = new LocationPicker();
+            } catch (error) {
+                console.error('Fatal application error:', error);
+                document.getElementById('loading-overlay').innerHTML = 
+                    `<div style="text-align: center; padding: 20px;">
+                        <h3>Fatal Error</h3>
+                        <p>${error.message}</p>
+                        <button onclick="location.reload()">Reload Page</button>
+                    </div>`;
+            }
+        });
+    </script>
+</body>
+</html>
